@@ -1,0 +1,1 @@
+This is just for learning React v19 features and also building the project.
