@@ -31,45 +31,66 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const client = new GoogleGenAI({apiKey : GEMINI_API_KEY});
 
+//Get gemini models
+
+// app.get("/api/list-models", async (req, res) => {
+//     try {
+//         const models = await client.models.list();
+//         res.json(models);
+//     } catch (err) {
+//         console.error("Error listing models:", err);
+//         res.status(500).json({error: err.message});
+//     }
+// });
+
 app.post("/api/explain-code", async (req, res) => {
 
     try {
         const {code, language} = req.body;
 
         if(!code){
-            res.status(400).json({error : "Code is required"});
+            return res.status(400).json({error : "Code is required"});
         }
 
         const contents = [
             {
                 role : "user",
-                content : `Please explain this ${
-                    language || ""
-                } code in simple terms: \n\n\`\`\`${language || ""}\n${code}\n\`\`\``,
+                parts: [
+                    {
+                        text: `Please explain this ${
+                            language || ""
+                        } code in simple terms: \n\n\`\`\`${language || ""}\n${code}\n\`\`\``
+                    }
+                ]
             },
         ];
 
-        const response = await client.models.generateContent({
-            model : "gemini-2.0-flash-001",
+        const result = await client.models.generateContent({
+            model : "gemini-2.5-flash",
             contents,
-            temperature : 0.3,
-            max_tokens : 800,
+            generationConfig: {
+                temperature : 0.3,
+                maxOutputTokens : 800,
+            }
         });
-
-        console.log("response", response);
-        const explaination = response?.choices[0]?.message?.content;
-
-        if(!explaination){
-            res.status(500).json({error : "Failed to explain code"})
+        
+        // console.log("response", result);
+        
+        const explanation = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if(!explanation){
+            return res.status(500).json({error : "Failed to explain code"});
         }
-
-        res.json({explaination, language : language || "Unknown"});
+        
+        res.json({explanation, language : language || "Unknown"});
 
     } catch (err) {
-        console.error("Code explain API error: ", err) 
-        res.status(500).json({error: "server error", details : err.message});
+        console.error("Code explain API error: ", err);
+        
+        if (!res.headersSent) {
+            res.status(500).json({error: "server error", details : err.message});
+        }
     }
-
 });
 
 const PORT = process.env.PORT || 3002;
